@@ -57,18 +57,26 @@ switch ($BatchSize) {
 
 Write-Host "Each batch ($BatchCount batches) is Uploading $BatchSize records with pattern '$pattern'"
 
-if ($DryRun -eq $false) {
-    1..$BatchCount | ForEach-Object -Parallel {
-        Write-Host "Uploading Batch $_"
-        
-        az storage blob upload-batch `
-            --auth-mode key `
-            --account-name $using:AccountName `
-            --account-key $using:AccountKey `
-            -d $using:Container `
-            -s ./blobs `
-            --pattern $using:pattern `
-            | Out-Null
-    
-    } -ThrottleLimit 6 -AsJob | Wait-Job | Receive-Job
-}
+1..$BatchCount | ForEach-Object -Parallel {
+    if ($using:DryRun) {
+        Write-Output "Dry Run, skipping upload $_."
+    }
+    else {
+        try {
+            # Write-Output "Uploading Batch $_`n"
+
+            az storage blob upload-batch `
+                --auth-mode key `
+                --account-name $using:AccountName `
+                --account-key $using:AccountKey `
+                -d $using:Container `
+                -s ./blobs `
+                --pattern $using:pattern `
+                | Out-Null
+                # $using:Assert-Success "Error Uploading Blobs"
+        }
+        catch {
+            Write-Output "Error Uploading", $_
+        }
+    }
+} -ThrottleLimit 6 -AsJob | Wait-Job | Receive-Job
